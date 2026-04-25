@@ -23,8 +23,6 @@
     </nav>
 
     <div class="products-container">
-
-    <div class="products-container">
       <h1 class="page-title">All Products</h1>
 
       <div class="products-grid">
