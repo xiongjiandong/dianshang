@@ -10,22 +10,23 @@
 <script setup>
 import { onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
+import { useUserStore } from '@/stores/user';
 
 const router = useRouter();
 const route = useRoute();
+const userStore = useUserStore();
 
 onMounted(() => {
   const { token, user } = route.query;
 
   if (token && user) {
     try {
-      // 保存token到localStorage
-      localStorage.setItem('auth_token', token);
-      localStorage.setItem('user', user);
-
       // 解析用户信息
       const userData = JSON.parse(decodeURIComponent(user));
       console.log('Login successful:', userData);
+
+      // 使用user store保存登录信息
+      userStore.login(token, userData);
 
       // 重定向到首页
       router.replace('/');

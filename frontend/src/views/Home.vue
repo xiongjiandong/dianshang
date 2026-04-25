@@ -11,10 +11,23 @@
         <router-link to="/products" class="nav-link">Products</router-link>
       </div>
       <div class="nav-actions">
-        <router-link to="/login" class="login-btn">
+        <!-- 未登录显示登录按钮 -->
+        <router-link v-if="!userStore.isLoggedIn" to="/login" class="login-btn">
           <span class="login-icon">👤</span>
           <span>Login</span>
         </router-link>
+        <!-- 已登录显示用户信息 -->
+        <div v-else class="user-info" @click="showUserMenu = !showUserMenu">
+          <img v-if="userStore.userAvatar" :src="userStore.userAvatar" class="user-avatar" />
+          <div v-else class="user-avatar-placeholder">{{ userStore.userName.charAt(0).toUpperCase() }}</div>
+          <span class="user-name">{{ userStore.userName }}</span>
+          <div v-if="showUserMenu" class="user-dropdown">
+            <router-link to="/profile" class="dropdown-item">Profile</router-link>
+            <router-link to="/orders" class="dropdown-item">My Orders</router-link>
+            <div class="dropdown-divider"></div>
+            <button @click.stop="handleLogout" class="dropdown-item logout">Logout</button>
+          </div>
+        </div>
         <div class="nav-cart" @click="goToCart">
           <span class="cart-icon">🛒</span>
           <span v-if="cartItemCount > 0" class="cart-badge">{{ cartItemCount }}</span>
@@ -87,12 +100,19 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useCartStore } from '@/stores/cart';
+import { useUserStore } from '@/stores/user';
 
 const router = useRouter();
 const cartStore = useCartStore();
+const userStore = useUserStore();
+const showUserMenu = ref(false);
+
+onMounted(() => {
+  userStore.initUser();
+});
 
 const cartItemCount = computed(() => cartStore.itemCount);
 
@@ -150,6 +170,12 @@ function addToCart(product) {
     quantity: 1
   });
   alert(`${product.name} added to cart!`);
+}
+
+function handleLogout() {
+  userStore.logout();
+  showUserMenu.value = false;
+  router.push('/');
 }
 
 function goToCart() {
@@ -238,6 +264,87 @@ function goToProduct(productId) {
 
 .login-icon {
   font-size: 16px;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  position: relative;
+  padding: 6px 12px;
+  border-radius: 20px;
+  transition: background 0.3s;
+}
+
+.user-info:hover {
+  background: #f0f0f0;
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.user-avatar-placeholder {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #0070ba;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.user-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.user-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 10px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  min-width: 150px;
+  overflow: hidden;
+  z-index: 1000;
+}
+
+.dropdown-item {
+  display: block;
+  padding: 12px 16px;
+  font-size: 14px;
+  color: #333;
+  text-decoration: none;
+  transition: background 0.2s;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.dropdown-item:hover {
+  background: #f5f5f5;
+}
+
+.dropdown-item.logout {
+  color: #ff4757;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: #e0e0e0;
 }
 
 .nav-cart {

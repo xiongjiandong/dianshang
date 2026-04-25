@@ -37,6 +37,16 @@ const routes = [
     component: () => import('@/views/AuthCallback.vue')
   },
   {
+    path: '/profile',
+    name: 'Profile',
+    component: () => import('@/views/Profile.vue')
+  },
+  {
+    path: '/orders',
+    name: 'Orders',
+    component: () => import('@/views/Orders.vue')
+  },
+  {
     path: '/privacy',
     name: 'Privacy',
     component: () => import('@/views/Privacy.vue')
