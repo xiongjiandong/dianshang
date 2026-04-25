@@ -10,6 +10,12 @@
         <router-link to="/" class="nav-link">Home</router-link>
         <router-link to="/products" class="nav-link">Products</router-link>
       </div>
+      <div class="nav-actions">
+        <router-link to="/login" class="login-btn">
+          <span class="login-icon">👤</span>
+          <span>Login</span>
+        </router-link>
+      </div>
     </nav>
 
     <div class="cart-container">
@@ -143,6 +149,34 @@ function goToCheckout() {
 
 .nav-link:hover {
   color: #0070ba;
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.login-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #0070ba;
+  color: white;
+  text-decoration: none;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.3s;
+}
+
+.login-btn:hover {
+  background: #005ea6;
+}
+
+.login-icon {
+  font-size: 16px;
 }
 
 .cart-container {

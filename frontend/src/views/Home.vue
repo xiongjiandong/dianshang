@@ -10,9 +10,15 @@
         <router-link to="/" class="nav-link active">Home</router-link>
         <router-link to="/products" class="nav-link">Products</router-link>
       </div>
-      <div class="nav-cart" @click="goToCart">
-        <span class="cart-icon">🛒</span>
-        <span v-if="cartItemCount > 0" class="cart-badge">{{ cartItemCount }}</span>
+      <div class="nav-actions">
+        <router-link to="/login" class="login-btn">
+          <span class="login-icon">👤</span>
+          <span>Login</span>
+        </router-link>
+        <div class="nav-cart" @click="goToCart">
+          <span class="cart-icon">🛒</span>
+          <span v-if="cartItemCount > 0" class="cart-badge">{{ cartItemCount }}</span>
+        </div>
       </div>
     </nav>
 
@@ -68,7 +74,14 @@
 
     <!-- Footer -->
     <footer class="footer">
-      <p>&copy; 2024 My Store. All rights reserved.</p>
+      <div class="footer-content">
+        <p>&copy; 2024 My Store. All rights reserved.</p>
+        <div class="footer-links">
+          <router-link to="/privacy" class="footer-link">Privacy Policy</router-link>
+          <span class="separator">|</span>
+          <router-link to="/terms" class="footer-link">Terms of Service</router-link>
+        </div>
+      </div>
     </footer>
   </div>
 </template>
@@ -197,6 +210,34 @@ function goToProduct(productId) {
 .nav-link:hover,
 .nav-link.active {
   color: #0070ba;
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.login-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #0070ba;
+  color: white;
+  text-decoration: none;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.3s;
+}
+
+.login-btn:hover {
+  background: #005ea6;
+}
+
+.login-icon {
+  font-size: 16px;
 }
 
 .nav-cart {
@@ -382,10 +423,40 @@ function goToProduct(productId) {
 }
 
 .footer {
-  text-align: center;
-  padding: 30px;
   background: #333;
   color: #999;
+  padding: 30px 40px;
+}
+
+.footer-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.footer-links {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.footer-link {
+  color: #999;
+  text-decoration: none;
+  font-size: 14px;
+  transition: color 0.3s;
+}
+
+.footer-link:hover {
+  color: white;
+}
+
+.separator {
+  color: #555;
 }
 
 @media (max-width: 768px) {
