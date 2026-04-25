@@ -4,8 +4,10 @@ const router = express.Router();
 // 导入子路由
 const orderRoutes = require('./orderRoutes');
 const paymentRoutes = require('./paymentRoutes');
+const authRoutes = require('./authRoutes');
 
 // 注册路由
+router.use('/auth', authRoutes);
 router.use('/orders', orderRoutes);
 router.use('/payments', paymentRoutes);
 
@@ -14,17 +16,17 @@ router.get('/', (req, res) => {
   res.json({
     success: true,
     data: {
-      name: '电商独立站 API',
+      name: 'E-commerce API',
       version: '1.0.0',
       endpoints: [
-        'POST /api/orders - 创建订单',
-        'GET /api/orders - 获取订单列表',
-        'GET /api/orders/:id - 获取订单详情',
-        'POST /api/orders/:id/cancel - 取消订单',
-        'POST /api/payments/create-order - 创建支付订单',
-        'POST /api/payments/capture-order - 捕获支付',
-        'POST /api/payments/webhook - PayPal回调',
-        'GET /api/payments/status/:orderId - 查询支付状态'
+        'GET /api/auth/google - Google login',
+        'GET /api/auth/github - GitHub login',
+        'GET /api/auth/microsoft - Microsoft login',
+        'GET /api/auth/me - Get current user',
+        'POST /api/orders - Create order',
+        'GET /api/orders - Get order list',
+        'POST /api/payments/create-order - Create payment',
+        'POST /api/payments/capture-order - Capture payment'
       ]
     }
   });

@@ -12,6 +12,7 @@ const sequelize = new Sequelize(
     dialect: config.database.dialect,
     timezone: config.database.timezone,
     logging: config.database.logging,
+    dialectOptions: config.database.dialectOptions,
     pool: {
       max: 10,
       min: 0,
@@ -28,6 +29,7 @@ const sequelize = new Sequelize(
 );
 
 // 导入模型
+const User = require('./User');
 const Order = require('./Order')(sequelize, Sequelize.DataTypes);
 const OrderItem = require('./OrderItem')(sequelize, Sequelize.DataTypes);
 const Payment = require('./Payment')(sequelize, Sequelize.DataTypes);
@@ -35,7 +37,7 @@ const PaymentLog = require('./PaymentLog')(sequelize, Sequelize.DataTypes);
 const Product = require('./Product')(sequelize, Sequelize.DataTypes);
 
 // 建立模型关联
-const models = { Order, OrderItem, Payment, PaymentLog, Product };
+const models = { User, Order, OrderItem, Payment, PaymentLog, Product };
 
 Object.keys(models).forEach(modelName => {
   if (models[modelName].associate) {

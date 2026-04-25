@@ -27,6 +27,26 @@ const routes = [
     component: () => import('@/views/Checkout.vue')
   },
   {
+    path: '/login',
+    name: 'Login',
+    component: () => import('@/views/Login.vue')
+  },
+  {
+    path: '/auth/callback',
+    name: 'AuthCallback',
+    component: () => import('@/views/AuthCallback.vue')
+  },
+  {
+    path: '/privacy',
+    name: 'Privacy',
+    component: () => import('@/views/Privacy.vue')
+  },
+  {
+    path: '/terms',
+    name: 'Terms',
+    component: () => import('@/views/Terms.vue')
+  },
+  {
     path: '/payment/result',
     name: 'PaymentResult',
     component: () => import('@/views/PaymentResult.vue')
