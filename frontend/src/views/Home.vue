@@ -19,8 +19,8 @@
         <!-- 已登录显示用户信息 -->
         <div v-else class="user-info" @click="showUserMenu = !showUserMenu">
           <img v-if="userStore.userAvatar" :src="userStore.userAvatar" class="user-avatar" />
-          <div v-else class="user-avatar-placeholder">{{ userStore.userName.charAt(0).toUpperCase() }}</div>
-          <span class="user-name">{{ userStore.userName }}</span>
+          <div v-else class="user-avatar-placeholder">{{ userStore.userName ? userStore.userName.charAt(0).toUpperCase() : 'U' }}</div>
+          <span class="user-name">{{ userStore.userName || 'User' }}</span>
           <div v-if="showUserMenu" class="user-dropdown">
             <router-link to="/profile" class="dropdown-item">Profile</router-link>
             <router-link to="/orders" class="dropdown-item">My Orders</router-link>

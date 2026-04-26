@@ -9,6 +9,11 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
       unique: true
     },
+    password: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      comment: 'Password hash for email/password login'
+    },
     name: {
       type: DataTypes.STRING(100),
       allowNull: true
@@ -20,11 +25,11 @@ module.exports = (sequelize, DataTypes) => {
     provider: {
       type: DataTypes.STRING(20),
       allowNull: false,
-      comment: 'google, github, microsoft'
+      comment: 'google, github, microsoft, local'
     },
     providerId: {
       type: DataTypes.STRING(100),
-      allowNull: false
+      allowNull: true
     },
     accessToken: {
       type: DataTypes.TEXT,
