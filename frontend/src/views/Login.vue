@@ -131,8 +131,6 @@ const userStore = useUserStore();
 const error = ref('');
 const loading = ref(false);
 
-const apiUrl = import.meta.env.VITE_API_BASE_URL || '';
-
 const loginForm = ref({
   email: '',
   password: ''
@@ -154,7 +152,7 @@ async function handleLogin() {
   error.value = '';
 
   try {
-    const response = await axios.post(`${apiUrl}/api/auth/login`, {
+    const response = await axios.post('/api/auth/login', {
       email: loginForm.value.email,
       password: loginForm.value.password
     });
@@ -165,22 +163,23 @@ async function handleLogin() {
       router.push('/');
     }
   } catch (err) {
-    error.value = err.response?.data?.message || 'Login failed. Please try again.';
+    console.error('Login error:', err);
+    error.value = err.response?.data?.message || err.message || 'Login failed. Please try again.';
   } finally {
     loading.value = false;
   }
 }
 
 function loginWithGoogle() {
-  window.location.href = `${apiUrl}/api/auth/google`;
+  window.location.href = '/api/auth/google';
 }
 
 function loginWithGithub() {
-  window.location.href = `${apiUrl}/api/auth/github`;
+  window.location.href = '/api/auth/github';
 }
 
 function loginWithMicrosoft() {
-  window.location.href = `${apiUrl}/api/auth/microsoft`;
+  window.location.href = '/api/auth/microsoft';
 }
 
 function goHome() {

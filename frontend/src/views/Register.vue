@@ -103,8 +103,6 @@ const error = ref('');
 const success = ref('');
 const loading = ref(false);
 
-const apiUrl = import.meta.env.VITE_API_BASE_URL || '';
-
 const registerForm = ref({
   name: '',
   email: '',
@@ -134,7 +132,7 @@ async function handleRegister() {
   loading.value = true;
 
   try {
-    const response = await axios.post(`${apiUrl}/api/auth/register`, {
+    const response = await axios.post('/api/auth/register', {
       email: registerForm.value.email,
       password: registerForm.value.password,
       name: registerForm.value.name
@@ -149,7 +147,8 @@ async function handleRegister() {
       }, 1500);
     }
   } catch (err) {
-    error.value = err.response?.data?.message || 'Registration failed. Please try again.';
+    console.error('Registration error:', err);
+    error.value = err.response?.data?.message || err.message || 'Registration failed. Please try again.';
   } finally {
     loading.value = false;
   }
