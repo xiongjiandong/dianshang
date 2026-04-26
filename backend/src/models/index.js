@@ -29,7 +29,7 @@ const sequelize = new Sequelize(
 );
 
 // 导入模型
-const User = require('./User');
+const User = require('./User')(sequelize, Sequelize.DataTypes);
 const Order = require('./Order')(sequelize, Sequelize.DataTypes);
 const OrderItem = require('./OrderItem')(sequelize, Sequelize.DataTypes);
 const Payment = require('./Payment')(sequelize, Sequelize.DataTypes);

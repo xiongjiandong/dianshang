@@ -56,12 +56,6 @@ async function startServer() {
     await sequelize.authenticate();
     console.log('数据库连接成功');
 
-    // 同步模型（开发环境）
-    if (process.env.NODE_ENV === 'development') {
-      await sequelize.sync({ alter: true });
-      console.log('数据库模型同步完成');
-    }
-
     // 启动服务
     app.listen(PORT, () => {
       console.log(`服务器运行在端口 ${PORT}`);
