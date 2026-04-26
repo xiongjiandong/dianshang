@@ -164,7 +164,15 @@ async function handleLogin() {
     }
   } catch (err) {
     console.error('Login error:', err);
-    error.value = err.response?.data?.message || err.message || 'Login failed. Please try again.';
+    if (err.response) {
+      // Server responded with error status
+      error.value = err.response.data?.message || `Error: ${err.response.status}`;
+    } else if (err.request) {
+      // Request made but no response
+      error.value = 'Cannot connect to server. Please check if server is running.';
+    } else {
+      error.value = err.message || 'Login failed. Please try again.';
+    }
   } finally {
     loading.value = false;
   }

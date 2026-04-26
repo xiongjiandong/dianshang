@@ -148,7 +148,13 @@ async function handleRegister() {
     }
   } catch (err) {
     console.error('Registration error:', err);
-    error.value = err.response?.data?.message || err.message || 'Registration failed. Please try again.';
+    if (err.response) {
+      error.value = err.response.data?.message || `Error: ${err.response.status}`;
+    } else if (err.request) {
+      error.value = 'Cannot connect to server. Please check if server is running.';
+    } else {
+      error.value = err.message || 'Registration failed. Please try again.';
+    }
   } finally {
     loading.value = false;
   }
