@@ -131,7 +131,7 @@ const userStore = useUserStore();
 const error = ref('');
 const loading = ref(false);
 
-const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3069';
+const apiUrl = import.meta.env.VITE_API_BASE_URL || '';
 
 const loginForm = ref({
   email: '',

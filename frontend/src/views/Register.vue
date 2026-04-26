@@ -103,7 +103,7 @@ const error = ref('');
 const success = ref('');
 const loading = ref(false);
 
-const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3069';
+const apiUrl = import.meta.env.VITE_API_BASE_URL || '';
 
 const registerForm = ref({
   name: '',
