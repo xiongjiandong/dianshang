@@ -8,7 +8,7 @@ module.exports = (sequelize, DataTypes) => {
       primaryKey: true
     },
     paymentId: {
-      type: DataTypes.UUID,
+      type: DataTypes.STRING(100),
       field: 'payment_id'
     },
     action: {
@@ -52,12 +52,7 @@ module.exports = (sequelize, DataTypes) => {
     updatedAt: false
   });
 
-  PaymentLog.associate = (models) => {
-    PaymentLog.belongsTo(models.Payment, {
-      foreignKey: 'paymentId',
-      as: 'payment'
-    });
-  };
+  // 不再建立关联，因为 payment_id 存储的是 PayPal 订单号（字符串）
 
   return PaymentLog;
 };

@@ -13,7 +13,7 @@ module.exports = (sequelize, DataTypes) => {
       field: 'order_id'
     },
     productId: {
-      type: DataTypes.UUID,
+      type: DataTypes.STRING(100),
       field: 'product_id'
     },
     productName: {

@@ -8,6 +8,9 @@ class PayPalService {
   async createOrder(orderData) {
     const { orderId, amount, currency, returnUrl, cancelUrl, description } = orderData;
 
+    // 确保 amount 是数字类型
+    const numAmount = parseFloat(amount);
+
     const payload = {
       intent: 'CAPTURE',
       purchase_units: [
@@ -17,7 +20,7 @@ class PayPalService {
           description: description || `Order ${orderId}`,
           amount: {
             currency_code: currency || 'USD',
-            value: amount.toFixed(2)
+            value: numAmount.toFixed(2)
           }
         }
       ],
@@ -104,9 +107,10 @@ class PayPalService {
    * 退款
    */
   async refund(captureId, refundData) {
+    const numAmount = parseFloat(refundData.amount);
     const payload = {
       amount: {
-        value: refundData.amount.toFixed(2),
+        value: numAmount.toFixed(2),
         currency_code: refundData.currency || 'USD'
       },
       note_to_payer: refundData.note || 'Refund'
