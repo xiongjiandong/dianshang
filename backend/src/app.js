@@ -50,23 +50,25 @@ app.use((err, req, res, next) => {
 // 启动服务器
 const PORT = process.env.PORT || 3000;
 
-async function startServer() {
-  try {
-    // 测试数据库连接
-    await sequelize.authenticate();
-    console.log('数据库连接成功');
+// 只在非 Vercel 环境下启动服务器
+if (require.main === module) {
+  async function startServer() {
+    try {
+      // 测试数据库连接
+      await sequelize.authenticate();
+      console.log('数据库连接成功');
 
-    // 启动服务
-    app.listen(PORT, () => {
-      console.log(`服务器运行在端口 ${PORT}`);
-      console.log(`环境: ${process.env.NODE_ENV}`);
-    });
-  } catch (error) {
-    console.error('启动失败:', error);
-    process.exit(1);
+      // 启动服务
+      app.listen(PORT, () => {
+        console.log(`服务器运行在端口 ${PORT}`);
+        console.log(`环境: ${process.env.NODE_ENV}`);
+      });
+    } catch (error) {
+      console.error('启动失败:', error);
+      process.exit(1);
+    }
   }
+  startServer();
 }
-
-startServer();
 
 module.exports = app;
