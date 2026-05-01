@@ -1,13 +1,19 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "workspaces": [
+  "version": 2,
+  "builds": [
     {
-      "name": "frontend",
-      "path": "frontend"
-    },
+      "src": "frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "buildCommand": "npm run build",
+        "outputDirectory": "frontend/dist"
+      }
+    }
+  ],
+  "routes": [
     {
-      "name": "backend",
-      "path": "backend"
+      "src": "/(.*)",
+      "dest": "/frontend/$1"
     }
   ]
 }
