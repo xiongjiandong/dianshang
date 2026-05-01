@@ -1,10 +1,10 @@
-// 独立的注册处理函数
+// 独立的注册处理函数 - 优化数据库连接
 const { Sequelize } = require('sequelize');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 
-// 数据库配置
+// 数据库配置 - 添加连接池和超时设置
 const sequelize = new Sequelize(
   'postgres',
   'postgres.bqgvqyzsnobkxitkjtno',
@@ -14,9 +14,16 @@ const sequelize = new Sequelize(
     port: 5432,
     dialect: 'postgres',
     dialectOptions: {
-      ssl: { require: true, rejectUnauthorized: false }
+      ssl: { require: true, rejectUnauthorized: false },
+      connectTimeout: 10000
     },
-    logging: false
+    logging: false,
+    pool: {
+      max: 2,
+      min: 0,
+      idle: 10000,
+      acquire: 15000
+    }
   }
 );
 
@@ -51,6 +58,20 @@ module.exports = async (req, res) => {
       });
     }
 
+    console.log('Register attempt for:', email);
+
+    // 测试数据库连接
+    try {
+      await sequelize.authenticate();
+      console.log('Database connected');
+    } catch (dbError) {
+      console.error('Database connection error:', dbError.message);
+      return res.status(503).json({
+        success: false,
+        message: '数据库连接失败，请稍后重试'
+      });
+    }
+
     // 检查用户是否存在
     const [existing] = await sequelize.query(
       'SELECT id FROM users WHERE email = ?',
@@ -81,6 +102,8 @@ module.exports = async (req, res) => {
       'my-jwt-secret-key-12345678',
       { expiresIn: '7d' }
     );
+
+    console.log('Registration successful for:', email);
 
     res.status(201).json({
       success: true,

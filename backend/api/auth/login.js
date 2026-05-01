@@ -1,9 +1,9 @@
-// 独立的登录处理函数 - 不依赖完整应用
+// 独立的登录处理函数 - 优化数据库连接
 const { Sequelize } = require('sequelize');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-// 数据库配置
+// 数据库配置 - 添加连接池和超时设置
 const sequelize = new Sequelize(
   'postgres',
   'postgres.bqgvqyzsnobkxitkjtno',
@@ -13,9 +13,16 @@ const sequelize = new Sequelize(
     port: 5432,
     dialect: 'postgres',
     dialectOptions: {
-      ssl: { require: true, rejectUnauthorized: false }
+      ssl: { require: true, rejectUnauthorized: false },
+      connectTimeout: 10000
     },
-    logging: false
+    logging: false,
+    pool: {
+      max: 2,
+      min: 0,
+      idle: 10000,
+      acquire: 15000
+    }
   }
 );
 
@@ -40,6 +47,20 @@ module.exports = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: '请输入邮箱和密码'
+      });
+    }
+
+    console.log('Login attempt for:', email);
+
+    // 测试数据库连接
+    try {
+      await sequelize.authenticate();
+      console.log('Database connected');
+    } catch (dbError) {
+      console.error('Database connection error:', dbError.message);
+      return res.status(503).json({
+        success: false,
+        message: '数据库连接失败，请稍后重试'
       });
     }
 
@@ -74,11 +95,13 @@ module.exports = async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    // 更新最后登录时间
-    await sequelize.query(
+    // 更新最后登录时间（不等待完成）
+    sequelize.query(
       'UPDATE users SET last_login_at = NOW() WHERE id = ?',
       { replacements: [user.id] }
-    );
+    ).catch(err => console.error('Update login time error:', err.message));
+
+    console.log('Login successful for:', email);
 
     res.json({
       success: true,
