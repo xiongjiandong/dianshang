@@ -1,8 +1,13 @@
-require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const morgan = require('morgan');
+
+// 只在本地开发时加载 dotenv
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
+
+// 导入模型
 const { sequelize } = require('./models');
 
 // 导入路由
@@ -12,14 +17,21 @@ const routes = require('./routes');
 const app = express();
 
 // 中间件配置
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: false
+}));
 app.use(cors({
   origin: process.env.CORS_ORIGIN || '*',
   credentials: true
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(morgan('combined'));
+
+// 请求日志（仅开发环境）
+if (process.env.NODE_ENV !== 'production') {
+  const morgan = require('morgan');
+  app.use(morgan('combined'));
+}
 
 // API路由
 app.use('/api', routes);
@@ -47,18 +59,15 @@ app.use((err, req, res, next) => {
   });
 });
 
-// 启动服务器
+// 启动服务器（仅本地开发）
 const PORT = process.env.PORT || 3000;
 
-// 只在非 Vercel 环境下启动服务器
 if (require.main === module) {
   async function startServer() {
     try {
-      // 测试数据库连接
       await sequelize.authenticate();
       console.log('数据库连接成功');
 
-      // 启动服务
       app.listen(PORT, () => {
         console.log(`服务器运行在端口 ${PORT}`);
         console.log(`环境: ${process.env.NODE_ENV}`);
