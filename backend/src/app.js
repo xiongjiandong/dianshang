@@ -3,7 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 
 // 只在本地开发时加载 dotenv
-if (process.env.NODE_ENV !== 'production') {
+if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
   require('dotenv').config();
 }
 
@@ -27,18 +27,39 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 请求日志（仅开发环境）
-if (process.env.NODE_ENV !== 'production') {
-  const morgan = require('morgan');
-  app.use(morgan('combined'));
-}
+// 数据库连接状态跟踪
+let dbConnected = false;
+
+// 数据库连接中间件
+app.use(async (req, res, next) => {
+  if (!dbConnected) {
+    try {
+      await sequelize.authenticate();
+      dbConnected = true;
+      console.log('数据库连接成功');
+    } catch (error) {
+      console.error('数据库连接失败:', error.message);
+      return res.status(503).json({
+        success: false,
+        message: '数据库连接失败，请稍后重试',
+        errorCode: 'DB_CONNECTION_ERROR'
+      });
+    }
+  }
+  next();
+});
 
 // API路由
 app.use('/api', routes);
 
 // 健康检查
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get('/health', async (req, res) => {
+  try {
+    await sequelize.authenticate();
+    res.json({ status: 'ok', timestamp: new Date().toISOString(), db: 'connected' });
+  } catch (error) {
+    res.status(503).json({ status: 'error', timestamp: new Date().toISOString(), db: 'disconnected' });
+  }
 });
 
 // 404处理
@@ -66,6 +87,7 @@ if (require.main === module) {
   async function startServer() {
     try {
       await sequelize.authenticate();
+      dbConnected = true;
       console.log('数据库连接成功');
 
       app.listen(PORT, () => {

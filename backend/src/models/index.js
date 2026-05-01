@@ -1,7 +1,7 @@
 const { Sequelize } = require('sequelize');
 const config = require('../config');
 
-// 创建Sequelize实例
+// 创建Sequelize实例 - 优化serverless环境
 const sequelize = new Sequelize(
   config.database.name,
   config.database.user,
@@ -11,12 +11,19 @@ const sequelize = new Sequelize(
     port: config.database.port,
     dialect: config.database.dialect,
     timezone: config.database.timezone,
-    logging: config.database.logging,
-    dialectOptions: config.database.dialectOptions,
+    logging: false,
+    dialectOptions: {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false
+      },
+      // 优化连接设置
+      connectTimeout: 60000,
+    },
     pool: {
-      max: 10,
+      max: 5,
       min: 0,
-      acquire: 30000,
+      acquire: 60000,
       idle: 10000
     },
     define: {
