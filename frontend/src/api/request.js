@@ -1,7 +1,10 @@
 import axios from 'axios';
 
+// 生产环境直接使用后端URL，开发环境使用环境变量
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://dianshang-o71u.vercel.app';
+
 const request = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL + '/api',
+  baseURL: API_BASE_URL + '/api',
   timeout: 30000
 });
 
