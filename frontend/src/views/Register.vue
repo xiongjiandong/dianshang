@@ -95,7 +95,7 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useUserStore } from '@/stores/user';
-import axios from 'axios';
+import { register as registerApi } from '@/api/auth';
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -132,14 +132,14 @@ async function handleRegister() {
   loading.value = true;
 
   try {
-    const response = await axios.post('/api/auth/register', {
+    const response = await registerApi({
       email: registerForm.value.email,
       password: registerForm.value.password,
       name: registerForm.value.name
     });
 
-    if (response.data.success) {
-      const { token, user } = response.data.data;
+    if (response.success) {
+      const { token, user } = response.data;
       userStore.login(token, user);
       success.value = 'Account created successfully! Redirecting...';
       setTimeout(() => {

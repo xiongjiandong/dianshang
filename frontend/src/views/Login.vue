@@ -123,7 +123,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useUserStore } from '@/stores/user';
-import axios from 'axios';
+import { login as loginApi } from '@/api/auth';
 
 const router = useRouter();
 const route = useRoute();
@@ -152,23 +152,21 @@ async function handleLogin() {
   error.value = '';
 
   try {
-    const response = await axios.post('/api/auth/login', {
+    const response = await loginApi({
       email: loginForm.value.email,
       password: loginForm.value.password
     });
 
-    if (response.data.success) {
-      const { token, user } = response.data.data;
+    if (response.success) {
+      const { token, user } = response.data;
       userStore.login(token, user);
       router.push('/');
     }
   } catch (err) {
     console.error('Login error:', err);
     if (err.response) {
-      // Server responded with error status
       error.value = err.response.data?.message || `Error: ${err.response.status}`;
     } else if (err.request) {
-      // Request made but no response
       error.value = 'Cannot connect to server. Please check if server is running.';
     } else {
       error.value = err.message || 'Login failed. Please try again.';
