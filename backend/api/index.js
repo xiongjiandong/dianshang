@@ -11,26 +11,43 @@ module.exports = async (req, res) => {
     return;
   }
 
-  const url = req.url || '';
+  // 获取路径（移除查询参数）
+  const url = (req.url || '').split('?')[0];
+  const path = url.replace(/\/$/, ''); // 移除末尾斜杠
+
+  console.log('Request URL:', url, 'Path:', path, 'Method:', req.method);
 
   // 测试端点
-  if (url === '/api/test' || url === '/api/test/' || url === '/health') {
+  if (path === '/api/test' || path === '/health' || path === '/api/health') {
     res.status(200).json({
       status: 'ok',
       message: 'Backend API is working!',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      path: path
+    });
+    return;
+  }
+
+  // API 根路径
+  if (path === '/api' || path === '/api/') {
+    res.status(200).json({
+      success: true,
+      data: {
+        name: 'E-commerce API',
+        version: '1.0.0'
+      }
     });
     return;
   }
 
   // 登录端点
-  if (url === '/api/auth/login' && req.method === 'POST') {
+  if (path === '/api/auth/login' && req.method === 'POST') {
     const loginHandler = require('./auth/login');
     return loginHandler(req, res);
   }
 
   // 注册端点
-  if (url === '/api/auth/register' && req.method === 'POST') {
+  if (path === '/api/auth/register' && req.method === 'POST') {
     const registerHandler = require('./auth/register');
     return registerHandler(req, res);
   }
@@ -38,6 +55,8 @@ module.exports = async (req, res) => {
   // 其他请求返回 404
   res.status(404).json({
     success: false,
-    message: 'API endpoint not found'
+    message: 'API endpoint not found',
+    path: path,
+    url: url
   });
 };
