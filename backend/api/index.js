@@ -1,5 +1,5 @@
-// Vercel Serverless 入口文件
+// Vercel Serverless Handler
 const app = require('../src/app');
 
-// Vercel 需要导出一个处理函数
+// 确保导出正确的处理函数
 module.exports = app;
