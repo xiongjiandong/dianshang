@@ -1,4 +1,4 @@
-// 最简单的 Vercel Serverless Handler
+// Vercel Serverless Handler - 简化路由
 module.exports = async (req, res) => {
   // 设置 CORS 头
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -11,8 +11,10 @@ module.exports = async (req, res) => {
     return;
   }
 
-  // 简单测试端点
-  if (req.url === '/api/test' || req.url === '/api/test/') {
+  const url = req.url || '';
+
+  // 测试端点
+  if (url === '/api/test' || url === '/api/test/' || url === '/health') {
     res.status(200).json({
       status: 'ok',
       message: 'Backend API is working!',
@@ -21,14 +23,21 @@ module.exports = async (req, res) => {
     return;
   }
 
-  // 对于其他请求，加载完整应用
-  try {
-    const app = require('../src/app');
-    return app(req, res);
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Server error'
-    });
+  // 登录端点
+  if (url === '/api/auth/login' && req.method === 'POST') {
+    const loginHandler = require('./auth/login');
+    return loginHandler(req, res);
   }
+
+  // 注册端点
+  if (url === '/api/auth/register' && req.method === 'POST') {
+    const registerHandler = require('./auth/register');
+    return registerHandler(req, res);
+  }
+
+  // 其他请求返回 404
+  res.status(404).json({
+    success: false,
+    message: 'API endpoint not found'
+  });
 };
