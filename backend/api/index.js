@@ -1,70 +1,34 @@
-// Vercel Serverless Handler - 简化版本
-const express = require('express');
-const cors = require('cors');
-const app = express();
+// 最简单的 Vercel Serverless Handler
+module.exports = async (req, res) => {
+  // 设置 CORS 头
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-// 基本中间件
-app.use(cors({ origin: '*', credentials: true }));
-app.use(express.json());
+  // 处理 OPTIONS 请求
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
 
-// 健康检查 - 不连接数据库
-app.get('/api/test', (req, res) => {
-  res.json({ status: 'ok', message: 'API is working', timestamp: new Date().toISOString() });
-});
+  // 简单测试端点
+  if (req.url === '/api/test' || req.url === '/api/test/') {
+    res.status(200).json({
+      status: 'ok',
+      message: 'Backend API is working!',
+      timestamp: new Date().toISOString()
+    });
+    return;
+  }
 
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
-// 延迟加载数据库和路由
-let appInitialized = false;
-let fullApp = null;
-
-async function initializeApp() {
-  if (appInitialized) return fullApp;
-
+  // 对于其他请求，加载完整应用
   try {
-    const { sequelize } = require('../src/models');
-    const routes = require('../src/routes');
-
-    await sequelize.authenticate();
-    console.log('Database connected');
-
-    app.use('/api', routes);
-    appInitialized = true;
-    fullApp = app;
-    return app;
+    const app = require('../src/app');
+    return app(req, res);
   } catch (error) {
-    console.error('Initialization error:', error);
-    throw error;
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Server error'
+    });
   }
-}
-
-// 初始化中间件
-app.use(async (req, res, next) => {
-  if (!appInitialized && req.path !== '/api/test' && req.path !== '/health') {
-    try {
-      await initializeApp();
-    } catch (error) {
-      return res.status(503).json({
-        success: false,
-        message: 'Service initializing, please try again',
-        errorCode: 'SERVICE_INIT'
-      });
-    }
-  }
-  next();
-});
-
-// 404处理
-app.use((req, res) => {
-  res.status(404).json({ success: false, message: 'Not found' });
-});
-
-// 错误处理
-app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  res.status(500).json({ success: false, message: err.message || 'Server error' });
-});
-
-module.exports = app;
+};
