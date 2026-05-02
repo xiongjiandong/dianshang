@@ -3,6 +3,7 @@ const axios = require('axios');
 const jwt = require('jsonwebtoken');
 const { Pool } = require('pg');
 const { parse } = require('url');
+const querystring = require('querystring');
 
 // 轻量级pg连接池
 const pool = new Pool({
@@ -24,34 +25,68 @@ function getBaseUrl(req) {
   return `${proto}://${host}`;
 }
 
+function redirect(res, url) {
+  res.writeHead(302, { Location: url });
+  res.end();
+}
+
 module.exports = async (req, res) => {
   const baseUrl = getBaseUrl(req);
   const query = parse(req.url, true).query;
-  const { code } = query;
+  const { code, error: googleError } = query;
+
+  // Google返回了错误（用户取消授权等）
+  if (googleError) {
+    console.error('Google returned error:', googleError);
+    return redirect(res, `${baseUrl}/login?error=${encodeURIComponent(googleError)}`);
+  }
 
   if (!code) {
-    res.writeHead(302, { Location: `${baseUrl}/login?error=no_code` });
-    return res.end();
+    console.error('No code in callback');
+    return redirect(res, `${baseUrl}/login?error=no_code`);
   }
 
   try {
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-    const redirectUri = `${baseUrl}/api/auth/google/callback`;
 
-    // 1. 用code换access_token
-    const tokenRes = await axios.post('https://oauth2.googleapis.com/token', {
-      code,
-      client_id: clientId,
-      client_secret: clientSecret,
-      redirect_uri: redirectUri,
-      grant_type: 'authorization_code'
-    }, { timeout: 8000 });
+    if (!clientId || !clientSecret) {
+      console.error('GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET not set');
+      return redirect(res, `${baseUrl}/login?error=google_config_missing`);
+    }
+
+    const redirectUri = `${baseUrl}/api/auth/google/callback`;
+    console.log('Exchanging code, redirect_uri:', redirectUri);
+
+    // 1. 用code换access_token（使用form编码，Google要求）
+    const tokenRes = await axios.post(
+      'https://oauth2.googleapis.com/token',
+      querystring.stringify({
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code'
+      }),
+      {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        timeout: 8000
+      }
+    );
+
+    // 检查Google是否返回了错误
+    if (tokenRes.data.error) {
+      console.error('Google token error:', JSON.stringify(tokenRes.data));
+      return redirect(res, `${baseUrl}/login?error=google_${tokenRes.data.error}`);
+    }
 
     const accessToken = tokenRes.data.access_token;
     if (!accessToken) {
-      throw new Error('No access token in response');
+      console.error('No access_token in response:', JSON.stringify(tokenRes.data));
+      return redirect(res, `${baseUrl}/login?error=no_access_token`);
     }
+
+    console.log('Got access token, fetching user info...');
 
     // 2. 获取用户信息
     const userRes = await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', {
@@ -60,9 +95,11 @@ module.exports = async (req, res) => {
     });
 
     const { id, email, name, picture } = userRes.data;
+    console.log('User info from Google:', email, name);
     const googleId = String(id);
 
     // 3. 查找或创建用户
+    console.log('Querying database...');
     const existing = await pool.query(
       'SELECT * FROM users WHERE provider = $1 AND provider_id = $2',
       ['google', googleId]
@@ -77,6 +114,7 @@ module.exports = async (req, res) => {
       );
       user.name = name || user.name;
       user.avatar = picture || user.avatar;
+      console.log('Updated existing user:', user.id);
     } else {
       const userId = `google_${googleId}`;
       await pool.query(
@@ -85,6 +123,7 @@ module.exports = async (req, res) => {
         [userId, email, name || 'Google User', picture, googleId, accessToken]
       );
       user = { id: userId, email, name: name || 'Google User', avatar: picture };
+      console.log('Created new user:', userId);
     }
 
     // 4. 生成JWT
@@ -102,12 +141,14 @@ module.exports = async (req, res) => {
       avatar: user.avatar
     }));
 
-    res.writeHead(302, { Location: `${baseUrl}/auth/callback?token=${token}&user=${userParam}` });
-    res.end();
+    console.log('Login success, redirecting to frontend');
+    redirect(res, `${baseUrl}/auth/callback?token=${token}&user=${userParam}`);
 
   } catch (error) {
-    console.error('Google callback error:', error.message);
-    res.writeHead(302, { Location: `${baseUrl}/login?error=auth_failed` });
-    res.end();
+    const errMsg = error.response?.data
+      ? JSON.stringify(error.response.data)
+      : error.message;
+    console.error('Google callback error:', errMsg);
+    redirect(res, `${baseUrl}/login?error=auth_failed`);
   }
 };
