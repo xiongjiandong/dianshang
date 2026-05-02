@@ -1,30 +1,21 @@
-// 独立的登录处理函数 - 优化数据库连接
-const { Sequelize } = require('sequelize');
+// 独立登录处理函数 - 使用轻量级 pg 客户端
+const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-// 数据库配置 - 添加连接池和超时设置
-const sequelize = new Sequelize(
-  'postgres',
-  'postgres.bqgvqyzsnobkxitkjtno',
-  'xjd520521521YX',
-  {
-    host: 'aws-1-ap-southeast-1.pooler.supabase.com',
-    port: 5432,
-    dialect: 'postgres',
-    dialectOptions: {
-      ssl: { require: true, rejectUnauthorized: false },
-      connectTimeout: 10000
-    },
-    logging: false,
-    pool: {
-      max: 2,
-      min: 0,
-      idle: 10000,
-      acquire: 15000
-    }
-  }
-);
+// 数据库连接池
+const pool = new Pool({
+  user: 'postgres.bqgvqyzsnobkxitkjtno',
+  password: 'xjd520521521YX',
+  host: 'aws-1-ap-southeast-1.pooler.supabase.com',
+  port: 5432,
+  database: 'postgres',
+  ssl: { rejectUnauthorized: false },
+  connectionTimeoutMillis: 8000,
+  idleTimeoutMillis: 10000,
+  max: 1,
+  min: 0
+});
 
 module.exports = async (req, res) => {
   // CORS
@@ -44,48 +35,24 @@ module.exports = async (req, res) => {
     const { email, password } = req.body || {};
 
     if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: '请输入邮箱和密码'
-      });
+      return res.status(400).json({ success: false, message: '请输入邮箱和密码' });
     }
 
-    console.log('Login attempt for:', email);
-
-    // 测试数据库连接
-    try {
-      await sequelize.authenticate();
-      console.log('Database connected');
-    } catch (dbError) {
-      console.error('Database connection error:', dbError.message);
-      return res.status(503).json({
-        success: false,
-        message: '数据库连接失败，请稍后重试'
-      });
-    }
+    console.log('Login attempt:', email);
 
     // 查询用户
-    const [results] = await sequelize.query(
-      'SELECT * FROM users WHERE email = ?',
-      { replacements: [email] }
-    );
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
 
-    if (results.length === 0) {
-      return res.status(401).json({
-        success: false,
-        message: '邮箱或密码错误'
-      });
+    if (result.rows.length === 0) {
+      return res.status(401).json({ success: false, message: '邮箱或密码错误' });
     }
 
-    const user = results[0];
+    const user = result.rows[0];
 
     // 验证密码
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) {
-      return res.status(401).json({
-        success: false,
-        message: '邮箱或密码错误'
-      });
+      return res.status(401).json({ success: false, message: '邮箱或密码错误' });
     }
 
     // 生成 token
@@ -95,13 +62,7 @@ module.exports = async (req, res) => {
       { expiresIn: '7d' }
     );
 
-    // 更新最后登录时间（不等待完成）
-    sequelize.query(
-      'UPDATE users SET last_login_at = NOW() WHERE id = ?',
-      { replacements: [user.id] }
-    ).catch(err => console.error('Update login time error:', err.message));
-
-    console.log('Login successful for:', email);
+    console.log('Login successful:', email);
 
     res.json({
       success: true,
