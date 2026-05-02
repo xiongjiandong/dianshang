@@ -10,31 +10,19 @@ const oauthConfig = {
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    redirectUri: `${config.app.apiUrl}/api/auth/google/callback`,
     authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
     tokenUrl: 'https://oauth2.googleapis.com/token',
     userInfoUrl: 'https://www.googleapis.com/oauth2/v2/userinfo',
     scope: 'openid email profile'
-  },
-  github: {
-    clientId: process.env.GITHUB_CLIENT_ID,
-    clientSecret: process.env.GITHUB_CLIENT_SECRET,
-    redirectUri: `${config.app.apiUrl}/api/auth/github/callback`,
-    authUrl: 'https://github.com/login/oauth/authorize',
-    tokenUrl: 'https://github.com/login/oauth/access_token',
-    userInfoUrl: 'https://api.github.com/user',
-    scope: 'user:email'
-  },
-  microsoft: {
-    clientId: process.env.MICROSOFT_CLIENT_ID,
-    clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
-    redirectUri: `${config.app.apiUrl}/api/auth/microsoft/callback`,
-    authUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
-    tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
-    userInfoUrl: 'https://graph.microsoft.com/v1.0/me',
-    scope: 'openid email profile User.Read'
   }
 };
+
+// 从请求中获取当前域名，用于构建OAuth回调URL
+function getBaseUrl(req) {
+  const host = req.headers.host || req.headers['x-forwarded-host'];
+  const proto = req.headers['x-forwarded-proto'] || 'https';
+  return `${proto}://${host}`;
+}
 
 // 生成JWT Token
 function generateToken(user) {
@@ -47,7 +35,9 @@ function generateToken(user) {
 
 // Google OAuth
 exports.googleLogin = (req, res) => {
-  const { clientId, redirectUri, authUrl, scope } = oauthConfig.google;
+  const { clientId, authUrl, scope } = oauthConfig.google;
+  const baseUrl = getBaseUrl(req);
+  const redirectUri = `${baseUrl}/api/auth/google/callback`;
   const url = `${authUrl}?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}`;
   res.redirect(url);
 };
@@ -55,7 +45,9 @@ exports.googleLogin = (req, res) => {
 exports.googleCallback = async (req, res) => {
   try {
     const { code } = req.query;
-    const { clientId, clientSecret, redirectUri, tokenUrl, userInfoUrl } = oauthConfig.google;
+    const { clientId, clientSecret, tokenUrl, userInfoUrl } = oauthConfig.google;
+    const baseUrl = getBaseUrl(req);
+    const redirectUri = `${baseUrl}/api/auth/google/callback`;
 
     // 获取access token
     const tokenResponse = await axios.post(tokenUrl, {
@@ -101,8 +93,8 @@ exports.googleCallback = async (req, res) => {
 
     const token = generateToken(user);
 
-    // 重定向到前端
-    res.redirect(`${config.app.frontendUrl}/auth/callback?token=${token}&user=${encodeURIComponent(JSON.stringify({
+    // 重定向到前端（同域名）
+    res.redirect(`${baseUrl}/auth/callback?token=${token}&user=${encodeURIComponent(JSON.stringify({
       id: user.id,
       email: user.email,
       name: user.name,
@@ -111,152 +103,7 @@ exports.googleCallback = async (req, res) => {
 
   } catch (error) {
     console.error('Google OAuth error:', error.response?.data || error.message);
-    res.redirect(`${config.app.frontendUrl}/login?error=auth_failed`);
-  }
-};
-
-// GitHub OAuth
-exports.githubLogin = (req, res) => {
-  const { clientId, redirectUri, authUrl, scope } = oauthConfig.github;
-  const url = `${authUrl}?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}`;
-  res.redirect(url);
-};
-
-exports.githubCallback = async (req, res) => {
-  try {
-    const { code } = req.query;
-    const { clientId, clientSecret, redirectUri, tokenUrl, userInfoUrl } = oauthConfig.github;
-
-    // 获取access token
-    const tokenResponse = await axios.post(tokenUrl, {
-      code,
-      client_id: clientId,
-      client_secret: clientSecret,
-      redirect_uri: redirectUri
-    }, {
-      headers: { Accept: 'application/json' }
-    });
-
-    const { access_token } = tokenResponse.data;
-
-    // 获取用户信息
-    const userResponse = await axios.get(userInfoUrl, {
-      headers: { Authorization: `token ${access_token}` }
-    });
-
-    const { id, email, name, avatar_url, login } = userResponse.data;
-
-    const userEmail = email || `${login}@github.com`;
-    const userName = name || login;
-
-    // 创建或更新用户
-    const [user] = await User.findOrCreate({
-      where: { provider: 'github', providerId: String(id) },
-      defaults: {
-        id: `github_${id}`,
-        email: userEmail,
-        name: userName,
-        avatar: avatar_url,
-        provider: 'github',
-        providerId: String(id),
-        accessToken: access_token,
-        lastLoginAt: new Date()
-      }
-    });
-
-    if (!user.isNewRecord) {
-      await user.update({
-        name: userName,
-        avatar: avatar_url,
-        accessToken: access_token,
-        lastLoginAt: new Date()
-      });
-    }
-
-    const token = generateToken(user);
-
-    res.redirect(`${config.app.frontendUrl}/auth/callback?token=${token}&user=${encodeURIComponent(JSON.stringify({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      avatar: user.avatar
-    }))}`);
-
-  } catch (error) {
-    console.error('GitHub OAuth error:', error.response?.data || error.message);
-    res.redirect(`${config.app.frontendUrl}/login?error=auth_failed`);
-  }
-};
-
-// Microsoft OAuth
-exports.microsoftLogin = (req, res) => {
-  const { clientId, redirectUri, authUrl, scope } = oauthConfig.microsoft;
-  const url = `${authUrl}?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&response_mode=query`;
-  res.redirect(url);
-};
-
-exports.microsoftCallback = async (req, res) => {
-  try {
-    const { code } = req.query;
-    const { clientId, clientSecret, redirectUri, tokenUrl, userInfoUrl } = oauthConfig.microsoft;
-
-    // 获取access token
-    const params = new URLSearchParams({
-      code,
-      client_id: clientId,
-      client_secret: clientSecret,
-      redirect_uri: redirectUri,
-      grant_type: 'authorization_code'
-    });
-
-    const tokenResponse = await axios.post(tokenUrl, params, {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-    });
-
-    const { access_token } = tokenResponse.data;
-
-    // 获取用户信息
-    const userResponse = await axios.get(userInfoUrl, {
-      headers: { Authorization: `Bearer ${access_token}` }
-    });
-
-    const { id, mail, displayName, userPrincipalName } = userResponse.data;
-    const email = mail || userPrincipalName;
-
-    // 创建或更新用户
-    const [user] = await User.findOrCreate({
-      where: { provider: 'microsoft', providerId: String(id) },
-      defaults: {
-        id: `microsoft_${id}`,
-        email,
-        name: displayName,
-        provider: 'microsoft',
-        providerId: String(id),
-        accessToken: access_token,
-        lastLoginAt: new Date()
-      }
-    });
-
-    if (!user.isNewRecord) {
-      await user.update({
-        name: displayName,
-        accessToken: access_token,
-        lastLoginAt: new Date()
-      });
-    }
-
-    const token = generateToken(user);
-
-    res.redirect(`${config.app.frontendUrl}/auth/callback?token=${token}&user=${encodeURIComponent(JSON.stringify({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      avatar: user.avatar
-    }))}`);
-
-  } catch (error) {
-    console.error('Microsoft OAuth error:', error.response?.data || error.message);
-    res.redirect(`${config.app.frontendUrl}/login?error=auth_failed`);
+    res.redirect(`${baseUrl}/login?error=auth_failed`);
   }
 };
 

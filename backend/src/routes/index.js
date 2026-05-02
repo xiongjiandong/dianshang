@@ -20,8 +20,6 @@ router.get('/', (req, res) => {
       version: '1.0.0',
       endpoints: [
         'GET /api/auth/google - Google login',
-        'GET /api/auth/github - GitHub login',
-        'GET /api/auth/microsoft - Microsoft login',
         'GET /api/auth/me - Get current user',
         'POST /api/orders - Create order',
         'GET /api/orders - Get order list',
