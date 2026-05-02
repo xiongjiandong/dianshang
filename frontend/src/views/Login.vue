@@ -120,7 +120,20 @@ const loginForm = ref({
 
 onMounted(() => {
   if (route.query.error) {
-    error.value = 'Authentication failed. Please try again.';
+    const errCode = route.query.error;
+    const detail = route.query.detail;
+    // 显示具体的错误信息，方便排查
+    if (detail) {
+      error.value = `认证失败: ${decodeURIComponent(detail)} (${errCode})`;
+    } else if (errCode === 'auth_failed') {
+      error.value = 'Authentication failed. Please try again.';
+    } else if (errCode === 'google_not_configured') {
+      error.value = 'Google login is not configured. Please contact support.';
+    } else if (errCode.startsWith('google_')) {
+      error.value = `Google error: ${errCode.replace('google_', '')}. Please try again.`;
+    } else {
+      error.value = `Authentication error: ${errCode}`;
+    }
   }
 });
 

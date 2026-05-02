@@ -56,28 +56,39 @@ module.exports = async (req, res) => {
     }
 
     const redirectUri = `${baseUrl}/api/auth/google/callback`;
-    console.log('Exchanging code, redirect_uri:', redirectUri);
+    console.log('Host:', req.headers.host, 'Proto:', req.headers['x-forwarded-proto']);
+    console.log('Redirect URI:', redirectUri);
 
     // 1. 用code换access_token（使用form编码，Google要求）
-    const tokenRes = await axios.post(
-      'https://oauth2.googleapis.com/token',
-      querystring.stringify({
-        code,
-        client_id: clientId,
-        client_secret: clientSecret,
-        redirect_uri: redirectUri,
-        grant_type: 'authorization_code'
-      }),
-      {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        timeout: 8000
-      }
-    );
+    let tokenRes;
+    try {
+      tokenRes = await axios.post(
+        'https://oauth2.googleapis.com/token',
+        querystring.stringify({
+          code,
+          client_id: clientId,
+          client_secret: clientSecret,
+          redirect_uri: redirectUri,
+          grant_type: 'authorization_code'
+        }),
+        {
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          timeout: 8000,
+          validateStatus: () => true  // 不抛异常，手动处理错误
+        }
+      );
+    } catch (networkErr) {
+      console.error('Token endpoint network error:', networkErr.message);
+      return redirect(res, `${baseUrl}/login?error=google_network&detail=${encodeURIComponent(networkErr.message)}`);
+    }
 
-    // 检查Google是否返回了错误
-    if (tokenRes.data.error) {
-      console.error('Google token error:', JSON.stringify(tokenRes.data));
-      return redirect(res, `${baseUrl}/login?error=google_${tokenRes.data.error}`);
+    // 检查Google返回的HTTP状态和错误
+    if (tokenRes.status !== 200 || tokenRes.data.error) {
+      const googleErr = tokenRes.data.error || 'unknown';
+      const googleErrDesc = tokenRes.data.error_description || '';
+      console.error('Google token error:', googleErr, googleErrDesc, 'HTTP', tokenRes.status);
+      console.error('Full response:', JSON.stringify(tokenRes.data));
+      return redirect(res, `${baseUrl}/login?error=google_${encodeURIComponent(googleErr)}&detail=${encodeURIComponent(googleErrDesc)}`);
     }
 
     const accessToken = tokenRes.data.access_token;
@@ -147,8 +158,9 @@ module.exports = async (req, res) => {
   } catch (error) {
     const errMsg = error.response?.data
       ? JSON.stringify(error.response.data)
-      : error.message;
-    console.error('Google callback error:', errMsg);
-    redirect(res, `${baseUrl}/login?error=auth_failed`);
+      : (error.message || String(error));
+    console.error('Google callback unexpected error:', errMsg);
+    console.error('Error stack:', error.stack);
+    redirect(res, `${baseUrl}/login?error=auth_failed&detail=${encodeURIComponent(errMsg)}`);
   }
 };
