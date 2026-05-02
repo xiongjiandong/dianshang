@@ -18,13 +18,13 @@ const sequelize = new Sequelize(
         rejectUnauthorized: false
       },
       // 优化连接设置
-      connectTimeout: 60000,
+      connectTimeout: 5000,
     },
     pool: {
-      max: 5,
+      max: 2,
       min: 0,
-      acquire: 60000,
-      idle: 10000
+      acquire: 5000,
+      idle: 5000
     },
     define: {
       timestamps: true,

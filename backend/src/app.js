@@ -27,27 +27,7 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 数据库连接状态跟踪
-let dbConnected = false;
-
-// 数据库连接中间件
-app.use(async (req, res, next) => {
-  if (!dbConnected) {
-    try {
-      await sequelize.authenticate();
-      dbConnected = true;
-      console.log('数据库连接成功');
-    } catch (error) {
-      console.error('数据库连接失败:', error.message);
-      return res.status(503).json({
-        success: false,
-        message: '数据库连接失败，请稍后重试',
-        errorCode: 'DB_CONNECTION_ERROR'
-      });
-    }
-  }
-  next();
-});
+// Serverless优化：延迟数据库连接，由Sequelize pool自动管理
 
 // API路由
 app.use('/api', routes);
