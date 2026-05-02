@@ -2,8 +2,22 @@ const axios = require('axios');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { randomUUID } = require('crypto');
-const { User } = require('../models');
+const { Pool } = require('pg');
 const config = require('../config');
+
+// Serverless优化：轻量级pg连接池
+const pool = new Pool({
+  user: config.database.user,
+  password: config.database.password,
+  host: config.database.host,
+  port: config.database.port,
+  database: config.database.name,
+  ssl: { rejectUnauthorized: false },
+  connectionTimeoutMillis: 5000,
+  idleTimeoutMillis: 5000,
+  max: 2,
+  min: 0
+});
 
 // OAuth配置
 const oauthConfig = {
@@ -33,7 +47,7 @@ function generateToken(user) {
   );
 }
 
-// Google OAuth
+// Google OAuth - 登录入口
 exports.googleLogin = (req, res) => {
   const { clientId, authUrl, scope } = oauthConfig.google;
   const baseUrl = getBaseUrl(req);
@@ -42,12 +56,17 @@ exports.googleLogin = (req, res) => {
   res.redirect(url);
 };
 
+// Google OAuth - 回调处理（使用轻量级pg，适合serverless）
 exports.googleCallback = async (req, res) => {
   try {
     const { code } = req.query;
     const { clientId, clientSecret, tokenUrl, userInfoUrl } = oauthConfig.google;
     const baseUrl = getBaseUrl(req);
     const redirectUri = `${baseUrl}/api/auth/google/callback`;
+
+    if (!code) {
+      return res.redirect(`${baseUrl}/login?error=no_code`);
+    }
 
     // 获取access token
     const tokenResponse = await axios.post(tokenUrl, {
@@ -66,29 +85,34 @@ exports.googleCallback = async (req, res) => {
     });
 
     const { id, email, name, picture } = userResponse.data;
+    const googleId = String(id);
 
-    // 创建或更新用户
-    const [user] = await User.findOrCreate({
-      where: { provider: 'google', providerId: String(id) },
-      defaults: {
-        id: `google_${id}`,
-        email,
-        name,
-        avatar: picture,
-        provider: 'google',
-        providerId: String(id),
-        accessToken: access_token,
-        lastLoginAt: new Date()
-      }
-    });
+    // 查找或创建用户（轻量级pg查询）
+    const existing = await pool.query(
+      'SELECT * FROM users WHERE provider = $1 AND provider_id = $2',
+      ['google', googleId]
+    );
 
-    if (!user.isNewRecord) {
-      await user.update({
-        name,
-        avatar: picture,
-        accessToken: access_token,
-        lastLoginAt: new Date()
-      });
+    let user;
+    if (existing.rows.length > 0) {
+      // 更新已有用户
+      user = existing.rows[0];
+      await pool.query(
+        `UPDATE users SET name = $1, avatar = $2, access_token = $3, last_login_at = $4, updated_at = NOW()
+         WHERE id = $5`,
+        [name || user.name, picture || user.avatar, access_token, new Date(), user.id]
+      );
+      user.name = name || user.name;
+      user.avatar = picture || user.avatar;
+    } else {
+      // 创建新用户
+      const userId = `google_${googleId}`;
+      await pool.query(
+        `INSERT INTO users (id, email, name, avatar, provider, provider_id, access_token, last_login_at, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, 'google', $5, $6, NOW(), NOW(), NOW())`,
+        [userId, email, name || 'Google User', picture, googleId, access_token]
+      );
+      user = { id: userId, email, name: name || 'Google User', avatar: picture };
     }
 
     const token = generateToken(user);
@@ -102,7 +126,8 @@ exports.googleCallback = async (req, res) => {
     }))}`);
 
   } catch (error) {
-    console.error('Google OAuth error:', error.response?.data || error.message);
+    console.error('Google OAuth error:', error.message);
+    const baseUrl = getBaseUrl(req);
     res.redirect(`${baseUrl}/login?error=auth_failed`);
   }
 };
@@ -118,11 +143,12 @@ exports.getCurrentUser = async (req, res) => {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, config.jwt.secret);
 
-    const user = await User.findByPk(decoded.userId);
-    if (!user) {
+    const result = await pool.query('SELECT * FROM users WHERE id = $1', [decoded.userId]);
+    if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
+    const user = result.rows[0];
     res.json({
       success: true,
       data: {
@@ -143,117 +169,82 @@ exports.logout = (req, res) => {
   res.json({ success: true, message: 'Logged out successfully' });
 };
 
-// 用户名密码注册
+// 用户名密码注册（使用轻量级pg）
 exports.register = async (req, res) => {
   try {
     const { email, password, name } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email and password are required'
-      });
+      return res.status(400).json({ success: false, message: 'Email and password are required' });
     }
 
     if (password.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: 'Password must be at least 6 characters'
-      });
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
     }
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ where: { email } });
-    if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email already registered'
-      });
+    // 检查用户是否已存在
+    const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ success: false, message: 'Email already registered' });
     }
 
-    // Hash password
+    // 加密密码
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create user
     const userId = randomUUID();
-    const user = await User.create({
-      id: userId,
-      email,
-      password: hashedPassword,
-      name: name || email.split('@')[0],
-      provider: 'local',
-      providerId: userId,
-      lastLoginAt: new Date()
-    });
 
-    // Generate token
+    // 创建用户
+    await pool.query(
+      `INSERT INTO users (id, email, password, name, provider, provider_id, last_login_at, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, 'local', $1, NOW(), NOW(), NOW())`,
+      [userId, email, hashedPassword, name || email.split('@')[0]]
+    );
+
+    const user = { id: userId, email, name: name || email.split('@')[0] };
     const token = generateToken(user);
 
     res.status(201).json({
       success: true,
       message: 'Registration successful',
-      data: {
-        token,
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          avatar: user.avatar
-        }
-      }
+      data: { token, user }
     });
 
   } catch (error) {
     console.error('Register error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Registration failed'
-    });
+    res.status(500).json({ success: false, message: 'Registration failed' });
   }
 };
 
-// 用户名密码登录
+// 用户名密码登录（使用轻量级pg）
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email and password are required'
-      });
+      return res.status(400).json({ success: false, message: 'Email and password are required' });
     }
 
-    // Find user
-    const user = await User.findOne({ where: { email } });
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid email or password'
-      });
+    // 查找用户
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    if (result.rows.length === 0) {
+      return res.status(401).json({ success: false, message: 'Invalid email or password' });
     }
 
-    // Check if user has password (local auth)
+    const user = result.rows[0];
+
+    // 检查认证方式
     if (!user.password) {
-      return res.status(401).json({
-        success: false,
-        message: 'Please login with ' + user.provider
-      });
+      return res.status(401).json({ success: false, message: 'Please login with ' + user.provider });
     }
 
-    // Verify password
+    // 验证密码
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid email or password'
-      });
+      return res.status(401).json({ success: false, message: 'Invalid email or password' });
     }
 
-    // Update last login
-    await user.update({ lastLoginAt: new Date() });
+    // 更新最后登录时间
+    await pool.query('UPDATE users SET last_login_at = NOW(), updated_at = NOW() WHERE id = $1', [user.id]);
 
-    // Generate token
     const token = generateToken(user);
 
     res.json({
@@ -272,9 +263,6 @@ exports.login = async (req, res) => {
 
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Login failed'
-    });
+    res.status(500).json({ success: false, message: 'Login failed' });
   }
 };
