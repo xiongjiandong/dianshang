@@ -106,7 +106,7 @@ exports.googleCallback = async (req, res) => {
       user.avatar = picture || user.avatar;
     } else {
       // 创建新用户
-      const userId = `google_${googleId}`;
+      const userId = randomUUID();
       await pool.query(
         `INSERT INTO users (id, email, name, avatar, provider, provider_id, access_token, last_login_at, created_at, updated_at)
          VALUES ($1, $2, $3, $4, 'google', $5, $6, NOW(), NOW(), NOW())`,

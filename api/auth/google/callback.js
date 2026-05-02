@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const { Pool } = require('pg');
 const { parse } = require('url');
 const querystring = require('querystring');
+const { randomUUID } = require('crypto');
 
 // 轻量级pg连接池
 const pool = new Pool({
@@ -127,7 +128,7 @@ module.exports = async (req, res) => {
       user.avatar = picture || user.avatar;
       console.log('Updated existing user:', user.id);
     } else {
-      const userId = `google_${googleId}`;
+      const userId = randomUUID();
       await pool.query(
         `INSERT INTO users (id, email, name, avatar, provider, provider_id, access_token, last_login_at, created_at, updated_at)
          VALUES ($1, $2, $3, $4, 'google', $5, $6, NOW(), NOW(), NOW())`,
