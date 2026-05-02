@@ -7,11 +7,11 @@ const querystring = require('querystring');
 
 // 轻量级pg连接池
 const pool = new Pool({
-  user: 'postgres.bqgvqyzsnobkxitkjtno',
-  password: 'xjd520521521YX',
-  host: 'aws-1-ap-southeast-1.pooler.supabase.com',
-  port: 5432,
-  database: 'postgres',
+  user: process.env.DB_USER || 'postgres.bqgvqyzsnobkxitkjtno',
+  password: process.env.DB_PASSWORD || 'xjd520521521YX',
+  host: process.env.DB_HOST || 'aws-1-ap-southeast-1.pooler.supabase.com',
+  port: parseInt(process.env.DB_PORT) || 5432,
+  database: process.env.DB_NAME || 'postgres',
   ssl: { rejectUnauthorized: false },
   connectionTimeoutMillis: 5000,
   idleTimeoutMillis: 5000,
@@ -129,7 +129,7 @@ module.exports = async (req, res) => {
     // 4. 生成JWT
     const token = jwt.sign(
       { userId: user.id, email: user.email, name: user.name },
-      'my-jwt-secret-key-12345678',
+      process.env.JWT_SECRET || 'my-jwt-secret-key-12345678',
       { expiresIn: '7d' }
     );
 

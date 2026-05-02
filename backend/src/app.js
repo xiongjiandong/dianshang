@@ -32,14 +32,9 @@ app.use(express.urlencoded({ extended: true }));
 // API路由
 app.use('/api', routes);
 
-// 健康检查
-app.get('/health', async (req, res) => {
-  try {
-    await sequelize.authenticate();
-    res.json({ status: 'ok', timestamp: new Date().toISOString(), db: 'connected' });
-  } catch (error) {
-    res.status(503).json({ status: 'error', timestamp: new Date().toISOString(), db: 'disconnected' });
-  }
+// 健康检查 - 轻量级，不测试数据库连接
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 // 404处理

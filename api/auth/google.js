@@ -1,6 +1,15 @@
 // Google OAuth 登录入口 - 独立轻量级serverless函数
 module.exports = (req, res) => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
+
+  if (!clientId) {
+    const host = req.headers.host;
+    const proto = req.headers['x-forwarded-proto'] || 'https';
+    res.writeHead(302, { Location: `${proto}://${host}/login?error=google_not_configured` });
+    res.end();
+    return;
+  }
+
   const host = req.headers.host;
   const proto = req.headers['x-forwarded-proto'] || 'https';
   const baseUrl = `${proto}://${host}`;
