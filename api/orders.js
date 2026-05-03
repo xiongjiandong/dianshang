@@ -44,42 +44,50 @@ function parseBody(req) {
 }
 
 module.exports = async (req, res) => {
+  // 只处理 POST（创建订单），GET/getOrder 转发到 Express
   if (req.method !== 'POST') {
-    return sendJson(res, 405, { success: false, message: 'Method not allowed' });
+    const app = require('../backend/src/app');
+    return app(req, res);
   }
 
   try {
     const body = await parseBody(req);
-    console.log('Order request body keys:', Object.keys(body));
-
     const { items, shippingAddress, currency, notes } = body;
 
     // 参数验证
     if (!items || !Array.isArray(items) || items.length === 0) {
-      return sendJson(res, 400, { success: false, message: '商品列表不能为空', errorCode: 'INVALID_PRODUCTS' });
+      return sendJson(res, 400, { success: false, message: '商品列表不能为空' });
     }
     if (!shippingAddress || !shippingAddress.recipientName || !shippingAddress.phone || !shippingAddress.address) {
-      return sendJson(res, 400, { success: false, message: '收货信息不完整', errorCode: 'INVALID_ADDRESS' });
+      return sendJson(res, 400, { success: false, message: '收货信息不完整' });
     }
     for (const item of items) {
       if (!item.productId || !item.productName || !item.quantity || !item.price) {
-        return sendJson(res, 400, { success: false, message: '商品信息无效', errorCode: 'INVALID_PRODUCT_DATA' });
+        return sendJson(res, 400, { success: false, message: '商品信息无效' });
       }
     }
 
-    // 计算金额
     const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-
-    // 创建订单
     const orderId = randomUUID();
     const orderNo = generateOrderNo();
 
-    console.log('Creating order:', orderId, orderNo, 'subtotal:', subtotal);
+    console.log('Creating order:', orderId, orderNo);
 
-    await pool.query(
+    // 测试数据库连接
+    try {
+      await pool.query('SELECT 1');
+      console.log('DB connection OK');
+    } catch (dbErr) {
+      console.error('DB connection failed:', dbErr.message);
+      return sendJson(res, 500, { success: false, message: '数据库连接失败: ' + dbErr.message });
+    }
+
+    // 插入订单
+    const result = await pool.query(
       `INSERT INTO orders (id, order_no, user_id, subtotal, total_amount, currency, status,
        recipient_name, phone, address, city, state, postal_code, country, notes, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())`,
+       VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
+       RETURNING id`,
       [
         orderId, orderNo, null, subtotal, subtotal, currency || 'USD',
         shippingAddress.recipientName, shippingAddress.phone, shippingAddress.address,
@@ -88,9 +96,9 @@ module.exports = async (req, res) => {
         notes || null
       ]
     );
-    console.log('Order inserted, creating items...');
+    console.log('Order inserted:', result.rows[0].id);
 
-    // 创建订单项
+    // 插入订单项
     for (const item of items) {
       await pool.query(
         `INSERT INTO order_items (id, order_id, product_id, product_name, quantity, unit_price, total_price, created_at)
@@ -98,8 +106,7 @@ module.exports = async (req, res) => {
         [randomUUID(), orderId, item.productId, item.productName, item.quantity, item.price, item.price * item.quantity]
       );
     }
-
-    console.log('Order created successfully:', orderId);
+    console.log('Order items inserted');
 
     sendJson(res, 201, {
       success: true,
@@ -109,12 +116,14 @@ module.exports = async (req, res) => {
 
   } catch (error) {
     console.error('Order creation error:', error.message);
-    console.error('Full error:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+    console.error('Error detail:', error.detail);
+    console.error('Error code:', error.code);
+    console.error('Error stack:', error.stack);
     sendJson(res, 500, {
       success: false,
       message: error.message || '订单创建失败',
       detail: error.detail || '',
-      errorCode: 'INTERNAL_ERROR'
+      code: error.code || ''
     });
   }
 };
