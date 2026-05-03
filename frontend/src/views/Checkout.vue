@@ -201,7 +201,14 @@ async function handleCreateOrder() {
     }
   } catch (error) {
     console.error('Failed to create order:', error);
-    alert('Failed to create order, please try again');
+    const serverMsg = error.response?.data?.message || error.response?.data?.detail;
+    if (serverMsg) {
+      alert('Failed to create order: ' + serverMsg);
+    } else if (error.message) {
+      alert('Failed to create order: ' + error.message);
+    } else {
+      alert('Failed to create order, please try again');
+    }
   } finally {
     isCreatingOrder.value = false;
   }

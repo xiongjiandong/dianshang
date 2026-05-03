@@ -4,7 +4,7 @@ import request from './request';
  * 创建订单
  */
 export function createOrder(data) {
-  return request.post('/orders', data);
+  return request.post('/orders/create', data);
 }
 
 /**
