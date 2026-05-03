@@ -1,152 +1,108 @@
-const { Order, OrderItem, sequelize } = require('../models');
-const { v4: uuidv4 } = require('uuid');
+const { Pool } = require('pg');
+const { randomUUID } = require('crypto');
+const config = require('../config');
+
+const pool = new Pool({
+  user: config.database.user,
+  password: config.database.password,
+  host: config.database.host,
+  port: config.database.port,
+  database: config.database.name,
+  ssl: { rejectUnauthorized: false },
+  connectionTimeoutMillis: 5000,
+  idleTimeoutMillis: 5000,
+  max: 2,
+  min: 0
+});
 
 class OrderService {
-  /**
-   * 生成订单号
-   */
   generateOrderNo() {
     const date = new Date();
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
-    const random = Math.random().toString(36).substr(2, 8).toUpperCase();
+    const random = Math.random().toString(36).substring(2, 10).toUpperCase();
     return `ORD${year}${month}${day}${random}`;
   }
 
-  /**
-   * 创建订单
-   */
   async createOrder(orderData) {
     const { items, shippingAddress, currency, notes, userId } = orderData;
 
-    // 计算总金额
     let subtotal = 0;
     for (const item of items) {
       subtotal += item.price * item.quantity;
     }
 
-    const totalAmount = subtotal;
+    const orderId = randomUUID();
+    const orderNo = this.generateOrderNo();
 
-    // 创建订单
-    const order = await Order.create({
-      orderNo: this.generateOrderNo(),
-      userId: userId || null,
-      subtotal,
-      totalAmount,
-      currency: currency || 'USD',
-      status: 'pending',
-      recipientName: shippingAddress.recipientName,
-      phone: shippingAddress.phone,
-      address: shippingAddress.address,
-      city: shippingAddress.city,
-      state: shippingAddress.state,
-      postalCode: shippingAddress.postalCode,
-      country: shippingAddress.country,
-      notes
-    });
-
-    // 创建订单项
-    const orderItems = await Promise.all(
-      items.map(item => OrderItem.create({
-        orderId: order.id,
-        productId: item.productId,
-        productName: item.productName,
-        productSku: item.productSku,
-        productImage: item.productImage,
-        quantity: item.quantity,
-        unitPrice: item.price,
-        totalPrice: item.price * item.quantity
-      }))
+    await pool.query(
+      `INSERT INTO orders (id, order_no, user_id, subtotal, total_amount, currency, status,
+       recipient_name, phone, address, city, state, postal_code, country, notes, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())`,
+      [
+        orderId, orderNo, userId || null, subtotal, subtotal, currency || 'USD',
+        shippingAddress.recipientName, shippingAddress.phone, shippingAddress.address,
+        shippingAddress.city || null, shippingAddress.state || null,
+        shippingAddress.postalCode || null, shippingAddress.country || 'US', notes || null
+      ]
     );
 
+    for (const item of items) {
+      await pool.query(
+        `INSERT INTO order_items (id, order_id, product_id, product_name, quantity, unit_price, total_price, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+        [randomUUID(), orderId, item.productId, item.productName, item.quantity, item.price, item.price * item.quantity]
+      );
+    }
+
     return {
-      orderId: order.id,
-      orderNo: order.orderNo,
-      totalAmount: order.totalAmount,
-      currency: order.currency,
-      status: order.status,
-      items: orderItems
+      orderId,
+      orderNo,
+      totalAmount: subtotal,
+      currency: currency || 'USD',
+      status: 'pending'
     };
   }
 
-  /**
-   * 获取订单详情
-   */
   async getOrderById(orderId) {
-    const order = await Order.findByPk(orderId, {
-      include: [
-        {
-          model: OrderItem,
-          as: 'items'
-        }
-      ]
-    });
-
+    const result = await pool.query('SELECT * FROM orders WHERE id = $1', [orderId]);
+    if (result.rows.length === 0) return null;
+    const order = result.rows[0];
+    const items = await pool.query('SELECT * FROM order_items WHERE order_id = $1', [orderId]);
+    order.items = items.rows;
     return order;
   }
 
-  /**
-   * 根据订单号获取订单
-   */
   async getOrderByNo(orderNo) {
-    return await Order.findOne({
-      where: { orderNo }
-    });
+    const result = await pool.query('SELECT * FROM orders WHERE order_no = $1', [orderNo]);
+    return result.rows[0] || null;
   }
 
-  /**
-   * 更新订单状态
-   */
   async updateOrderStatus(orderId, status, extraData = {}) {
-    const order = await Order.findByPk(orderId);
-    if (!order) {
-      throw new Error('订单不存在');
-    }
+    const now = new Date();
+    let paidAt = extraData.paidAt || null;
+    if (status === 'paid') paidAt = paidAt || now;
 
-    const updateData = { status, ...extraData };
-
-    // 设置时间戳
-    if (status === 'paid') {
-      updateData.paidAt = new Date();
-    } else if (status === 'shipped') {
-      updateData.shippedAt = new Date();
-    } else if (status === 'delivered') {
-      updateData.deliveredAt = new Date();
-    } else if (status === 'cancelled') {
-      updateData.cancelledAt = new Date();
-    }
-
-    await order.update(updateData);
-    return order;
+    await pool.query(
+      `UPDATE orders SET status = $1, paid_at = $2, updated_at = NOW() WHERE id = $3`,
+      [status, paidAt, orderId]
+    );
   }
 
-  /**
-   * 获取用户订单列表
-   */
   async getOrdersByUserId(userId, options = {}) {
     const { page = 1, pageSize = 10 } = options;
     const offset = (page - 1) * pageSize;
 
-    const { count, rows } = await Order.findAndCountAll({
-      where: { userId },
-      include: [
-        {
-          model: OrderItem,
-          as: 'items'
-        }
-      ],
-      order: [['created_at', 'DESC']],
-      limit: pageSize,
-      offset
-    });
+    const countRes = await pool.query('SELECT COUNT(*) FROM orders WHERE user_id = $1', [userId]);
+    const total = parseInt(countRes.rows[0].count);
 
-    return {
-      total: count,
-      page,
-      pageSize,
-      list: rows
-    };
+    const result = await pool.query(
+      'SELECT * FROM orders WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3',
+      [userId, pageSize, offset]
+    );
+
+    return { total, page, pageSize, list: result.rows };
   }
 }
 
