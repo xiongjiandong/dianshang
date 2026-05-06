@@ -2,18 +2,24 @@
 const { Pool } = require('pg');
 const { randomUUID } = require('crypto');
 
-const pool = new Pool({
-  user: process.env.DB_USER || 'postgres.bqgvqyzsnobkxitkjtno',
-  password: process.env.DB_PASSWORD || 'xjd520521521YX',
-  host: process.env.DB_HOST || 'aws-1-ap-southeast-1.pooler.supabase.com',
-  port: parseInt(process.env.DB_PORT) || 5432,
-  database: process.env.DB_NAME || 'postgres',
-  ssl: { rejectUnauthorized: false },
-  connectionTimeoutMillis: 5000,
-  idleTimeoutMillis: 5000,
-  max: 1,
-  min: 0
-});
+let pool = null;
+function getPool() {
+  if (!pool) {
+    pool = new Pool({
+      user: process.env.DB_USER || 'postgres.bqgvqyzsnobkxitkjtno',
+      password: process.env.DB_PASSWORD || 'xjd520521521YX',
+      host: process.env.DB_HOST || 'aws-1-ap-southeast-1.pooler.supabase.com',
+      port: parseInt(process.env.DB_PORT) || 5432,
+      database: process.env.DB_NAME || 'postgres',
+      ssl: { rejectUnauthorized: false },
+      connectionTimeoutMillis: 5000,
+      idleTimeoutMillis: 5000,
+      max: 1,
+      min: 0
+    });
+  }
+  return pool;
+}
 
 function sendJson(res, code, data) {
   res.statusCode = code;
@@ -41,6 +47,11 @@ function genOrderNo() {
 }
 
 module.exports = async (req, res) => {
+  // GET请求 - 健康检查
+  if (req.method === 'GET') {
+    return sendJson(res, 200, { success: true, message: 'Orders endpoint is working', method: 'GET' });
+  }
+
   if (req.method !== 'POST') {
     return sendJson(res, 405, { success: false, message: 'Method not allowed' });
   }
@@ -62,7 +73,7 @@ module.exports = async (req, res) => {
 
     console.log('Creating order:', orderId, orderNo);
 
-    await pool.query(
+    await getPool().query(
       `INSERT INTO orders (id, order_no, user_id, subtotal, total_amount, currency, status,
        recipient_name, phone, address, city, state, postal_code, country, notes, created_at, updated_at)
        VALUES ($1,$2,$3,$4,$5,$6,'pending',$7,$8,$9,$10,$11,$12,$13,$14,NOW(),NOW())`,
@@ -73,7 +84,7 @@ module.exports = async (req, res) => {
     );
 
     for (const item of items) {
-      await pool.query(
+      await getPool().query(
         `INSERT INTO order_items (id, order_id, product_id, product_name, quantity, unit_price, total_price, created_at)
          VALUES ($1,$2,$3,$4,$5,$6,$7,NOW())`,
         [randomUUID(), orderId, item.productId, item.productName, item.quantity, item.price, item.price*item.quantity]

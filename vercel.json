@@ -3,7 +3,6 @@
   "outputDirectory": "frontend/dist",
   "framework": null,
   "routes": [
-    { "src": "/api/orders", "dest": "/api/orders-create" },
     { "src": "/api/payments/create-order", "dest": "/api/payments-create" },
     { "src": "/api/payments/capture-order", "dest": "/api/payments-capture" },
     { "handle": "filesystem" },
