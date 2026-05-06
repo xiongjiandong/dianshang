@@ -2,10 +2,9 @@
   "buildCommand": "npm install && cd frontend && npm install && npm run build",
   "outputDirectory": "frontend/dist",
   "framework": null,
-  "routes": [
-    { "src": "/api/payments/create-order", "dest": "/api/payments-create" },
-    { "src": "/api/payments/capture-order", "dest": "/api/payments-capture" },
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/index.html" }
+  "rewrites": [
+    { "source": "/api/payments/create-order", "destination": "/api/payments-create" },
+    { "source": "/api/payments/capture-order", "destination": "/api/payments-capture" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
