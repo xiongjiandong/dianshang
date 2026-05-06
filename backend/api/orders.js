@@ -24,6 +24,7 @@ function getPool() {
 function sendJson(res, code, data) {
   res.statusCode = code;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Access-Control-Allow-Origin', '*');
   res.end(JSON.stringify(data));
 }
 
