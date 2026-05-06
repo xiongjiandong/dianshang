@@ -52,6 +52,29 @@ module.exports = async (req, res) => {
     return registerHandler(req, res);
   }
 
+  // 订单创建端点
+  if ((path === '/api/orders' || path === '/api/orders/') && req.method === 'POST') {
+    const ordersHandler = require('./orders');
+    return ordersHandler(req, res);
+  }
+
+  // 订单健康检查
+  if ((path === '/api/orders' || path === '/api/orders/') && req.method === 'GET') {
+    return res.status(200).json({ success: true, message: 'Orders endpoint is working', method: 'GET' });
+  }
+
+  // 支付创建端点
+  if (path === '/api/payments/create-order' && req.method === 'POST') {
+    const paymentCreateHandler = require('./payments-create');
+    return paymentCreateHandler(req, res);
+  }
+
+  // 支付捕获端点
+  if (path === '/api/payments/capture-order' && req.method === 'POST') {
+    const paymentCaptureHandler = require('./payments-capture');
+    return paymentCaptureHandler(req, res);
+  }
+
   // 其他请求返回 404
   res.status(404).json({
     success: false,
