@@ -33,7 +33,8 @@ function parseBody(req) {
   });
 }
 
-const isProd = (process.env.NODE_ENV || 'production') === 'production';
+// 默认使用 Sandbox 环境，除非明确设置为生产环境
+const isProd = process.env.PAYPAL_MODE === 'production';
 const ppCfg = {
   clientId: isProd ? process.env.PAYPAL_PRODUCTION_CLIENT_ID : process.env.PAYPAL_SANDBOX_CLIENT_ID,
   secret: isProd ? process.env.PAYPAL_PRODUCTION_CLIENT_SECRET : process.env.PAYPAL_SANDBOX_CLIENT_SECRET,
@@ -67,6 +68,12 @@ module.exports = async (req, res) => {
 
   if (req.method !== 'POST') {
     return sendJson(res, 405, { success: false, message: 'Method not allowed' });
+  }
+
+  // 检查PayPal凭证
+  if (!ppCfg.clientId || !ppCfg.secret) {
+    console.error('PayPal credentials not configured');
+    return sendJson(res, 500, { success: false, message: 'PayPal凭证未配置，请在Vercel设置PAYPAL_SANDBOX_CLIENT_ID和PAYPAL_SANDBOX_CLIENT_SECRET环境变量' });
   }
 
   try {
