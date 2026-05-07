@@ -54,9 +54,21 @@ async function getPPToken() {
 }
 
 module.exports = async (req, res) => {
+  // CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 200;
+    res.end();
+    return;
+  }
+
   if (req.method !== 'POST') {
     return sendJson(res, 405, { success: false, message: 'Method not allowed' });
   }
+
   try {
     const { orderId, returnUrl, cancelUrl } = await parseBody(req);
     if (!orderId) return sendJson(res, 400, { success: false, message: '订单ID不能为空' });

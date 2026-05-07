@@ -48,7 +48,19 @@ function genOrderNo() {
 }
 
 module.exports = async (req, res) => {
-  // GET请求 - 健康检查
+  // 立即设置CORS头
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  // 处理OPTIONS预检
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 200;
+    res.end();
+    return;
+  }
+
+  // GET健康检查
   if (req.method === 'GET') {
     return sendJson(res, 200, { success: true, message: 'Orders endpoint is working', method: 'GET' });
   }

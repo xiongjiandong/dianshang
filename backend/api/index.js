@@ -1,85 +1,69 @@
-// Vercel Serverless Handler - 简化路由
-module.exports = async (req, res) => {
-  // 设置 CORS 头
+// Vercel Serverless Handler - 原生Node.js响应
+function sendJson(res, code, data) {
+  res.statusCode = code;
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.end(JSON.stringify(data));
+}
 
-  // 处理 OPTIONS 请求
+module.exports = async (req, res) => {
+  // 处理 OPTIONS 预检请求
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
+    res.statusCode = 200;
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.end();
     return;
   }
 
-  // 获取路径（移除查询参数）
+  // 获取路径
   const url = (req.url || '').split('?')[0];
-  const path = url.replace(/\/$/, ''); // 移除末尾斜杠
-
-  console.log('Request URL:', url, 'Path:', path, 'Method:', req.method);
+  const path = url.replace(/\/$/, '');
+  console.log('Request:', req.method, path);
 
   // 测试端点
   if (path === '/api/test' || path === '/health' || path === '/api/health') {
-    res.status(200).json({
-      status: 'ok',
-      message: 'Backend API is working!',
-      timestamp: new Date().toISOString(),
-      path: path
-    });
-    return;
+    return sendJson(res, 200, { status: 'ok', message: 'Backend API is working!', timestamp: new Date().toISOString() });
   }
 
   // API 根路径
   if (path === '/api' || path === '/api/') {
-    res.status(200).json({
-      success: true,
-      data: {
-        name: 'E-commerce API',
-        version: '1.0.0'
-      }
-    });
-    return;
+    return sendJson(res, 200, { success: true, data: { name: 'E-commerce API', version: '1.0.0' } });
   }
 
-  // 登录端点
+  // 登录
   if (path === '/api/auth/login' && req.method === 'POST') {
-    const loginHandler = require('./auth/login');
-    return loginHandler(req, res);
+    const handler = require('./auth/login');
+    return handler(req, res);
   }
 
-  // 注册端点
+  // 注册
   if (path === '/api/auth/register' && req.method === 'POST') {
-    const registerHandler = require('./auth/register');
-    return registerHandler(req, res);
+    const handler = require('./auth/register');
+    return handler(req, res);
   }
 
-  // 订单创建端点
-  if ((path === '/api/orders' || path === '/api/orders/') && req.method === 'POST') {
-    const ordersHandler = require('./orders');
-    return ordersHandler(req, res);
+  // 订单
+  if (path === '/api/orders' || path === '/api/orders/') {
+    const handler = require('./orders');
+    return handler(req, res);
   }
 
-  // 订单健康检查
-  if ((path === '/api/orders' || path === '/api/orders/') && req.method === 'GET') {
-    return res.status(200).json({ success: true, message: 'Orders endpoint is working', method: 'GET' });
-  }
-
-  // 支付创建端点
+  // 支付创建
   if (path === '/api/payments/create-order' && req.method === 'POST') {
-    const paymentCreateHandler = require('./payments-create');
-    return paymentCreateHandler(req, res);
+    const handler = require('./payments-create');
+    return handler(req, res);
   }
 
-  // 支付捕获端点
+  // 支付捕获
   if (path === '/api/payments/capture-order' && req.method === 'POST') {
-    const paymentCaptureHandler = require('./payments-capture');
-    return paymentCaptureHandler(req, res);
+    const handler = require('./payments-capture');
+    return handler(req, res);
   }
 
-  // 其他请求返回 404
-  res.status(404).json({
-    success: false,
-    message: 'API endpoint not found',
-    path: path,
-    url: url
-  });
+  // 404
+  sendJson(res, 404, { success: false, message: 'API endpoint not found', path });
 };
