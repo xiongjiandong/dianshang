@@ -34,18 +34,6 @@ module.exports = async (req, res) => {
     return sendJson(res, 200, { success: true, data: { name: 'E-commerce API', version: '1.0.0' } });
   }
 
-  // 登录
-  if (path === '/api/auth/login' && req.method === 'POST') {
-    const handler = require('./auth/login');
-    return handler(req, res);
-  }
-
-  // 注册
-  if (path === '/api/auth/register' && req.method === 'POST') {
-    const handler = require('./auth/register');
-    return handler(req, res);
-  }
-
   // 订单
   if (path === '/api/orders' || path === '/api/orders/') {
     const handler = require('./orders');
