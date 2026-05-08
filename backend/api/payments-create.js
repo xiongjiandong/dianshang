@@ -33,11 +33,11 @@ function parseBody(req) {
   });
 }
 
-// 默认使用 Sandbox 环境，除非明确设置为生产环境
+// 默认使用 Sandbox 环境
 const isProd = process.env.PAYPAL_MODE === 'production';
 const ppCfg = {
-  clientId: isProd ? process.env.PAYPAL_PRODUCTION_CLIENT_ID : process.env.PAYPAL_SANDBOX_CLIENT_ID,
-  secret: isProd ? process.env.PAYPAL_PRODUCTION_CLIENT_SECRET : process.env.PAYPAL_SANDBOX_CLIENT_SECRET,
+  clientId: isProd ? process.env.PAYPAL_PRODUCTION_CLIENT_ID : (process.env.PAYPAL_SANDBOX_CLIENT_ID || 'AQ01VwepTDHOlwn77ViUMzE9O8eaee_lsGZvxYyXitubmkvanzsIPjcf8Q5ld3tqZYxF4nEVM5Wbyb42'),
+  secret: isProd ? process.env.PAYPAL_PRODUCTION_CLIENT_SECRET : (process.env.PAYPAL_SANDBOX_CLIENT_SECRET || 'EHimqCWnV3UiKjOENYEiVVjvkaVLJZBG69NyjJ742WDmpng1lS24EHJJyKonT4GeQVKRnOHK6u-lhyxV'),
   apiBase: isProd ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com'
 };
 
